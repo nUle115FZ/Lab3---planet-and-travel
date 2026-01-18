@@ -1,0 +1,62 @@
+# Qt Creator
+*.pro.user
+*.pro.user.*
+.qmake.stash
+moc_predefs.h
+
+# Compiled files
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.exe
+
+# MOC/UIC/RCC generated files
+moc_*.cpp
+moc_*.h
+ui_*.h
+qrc_*.cpp
+
+# Build directories
+build/
+debug/
+release/
+build-*/
+*.app/
+
+# Generated Makefiles
+Makefile
+Makefile.*
+!CosmicLogistics.pro
+
+# Windows specific
+*.pdb
+*.ilk
+
+# CSV output files
+*.csv
+
+# Temporary files
+*~
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+.qtc_clangd/
+*.user
+*.suo
+*.sdf
+*.opensdf
+
+# Backup files
+*.bak
+*.backup
+
+# Test executables
+tests/test_graph
+tests/*.o
