@@ -24,6 +24,7 @@ SOURCES += \
     src/ui/graphview.cpp \
     src/ui/addplanetdialog.cpp \
     src/ui/addedgedialog.cpp \
+    src/ui/piratebattle.cpp \
     src/graph/StarGraph.cpp \
     src/graph/Dijkstra.cpp \
     src/game/Trader.cpp \
@@ -35,6 +36,7 @@ HEADERS += \
     include/ui/graphview.h \
     include/ui/addplanetdialog.h \
     include/ui/addedgedialog.h \
+    include/ui/piratebattle.h \
     include/core/Sequence.h \
     include/core/DynamicArray.h \
     include/core/PriorityQueue.h \

@@ -734,8 +734,10 @@ void GraphView::onBlackHoleUpdate()
     //проверяем коллизии с планетами
     checkBlackHoleCollisions();
     
+    
     //проверяем коллизии с путями (рёбрами)
     checkBlackHoleEdgeCollisions();
+    //проверяем коллизии с путями (рёбрами)
     
     //проверяем что черная дыра пересекла весь экран и вышла с другой стороны
     QPointF pos = blackHole->getPosition();
@@ -882,10 +884,8 @@ void GraphView::checkBlackHoleEdgeCollisions()
     QPointF blackHolePos = blackHole->getPosition();
     double blackHoleRadius = blackHole->getRadius();
     
-    //получаем все вершины
     DynamicArray<int> vertices = graph->GetAllVertices();
     
-    //проверяем все рёбра
     for (int i = 0; i < vertices.GetSize(); i++) {
         int fromId = vertices.Get(i);
         
@@ -903,34 +903,23 @@ void GraphView::checkBlackHoleEdgeCollisions()
                 continue;
             }
             
-            //получаем позиции планет
             QPointF fromPos = nodePositions[fromId].position;
             QPointF toPos = nodePositions[toId].position;
             
-            //проверяем пересечение черной дыры с линией (ребром)
-            //используем формулу расстояния от точки до отрезка
-            
-            //вектор от fromPos до toPos
             QPointF lineVec = toPos - fromPos;
-            //вектор от fromPos до черной дыры
             QPointF pointVec = blackHolePos - fromPos;
             
-            //проекция pointVec на lineVec
             double lineLen = QLineF(fromPos, toPos).length();
-            if (lineLen < 0.001) continue;  //защита от деления на 0
+            if (lineLen < 0.001) continue;
             
             double t = QPointF::dotProduct(pointVec, lineVec) / (lineLen * lineLen);
-            t = qBound(0.0, t, 1.0);  //ограничиваем t в пределах [0, 1]
+            t = qBound(0.0, t, 1.0);
             
-            //ближайшая точка на отрезке
             QPointF closestPoint = fromPos + lineVec * t;
             
-            //расстояние от черной дыры до ближайшей точки на отрезке
             double distance = QLineF(blackHolePos, closestPoint).length();
             
-            //если расстояние меньше радиуса - есть пересечение!
             if (distance <= blackHoleRadius) {
-                //удаляем ребро
                 QString fromName = QString::fromStdString(graph->GetVertexName(fromId));
                 QString toName = QString::fromStdString(graph->GetVertexName(toId));
                 
@@ -938,8 +927,6 @@ void GraphView::checkBlackHoleEdgeCollisions()
                              .arg(fromName).arg(toName));
                 
                 graph->RemoveEdge(fromId, toId);
-                
-                //выходим из внутреннего цикла, так как массив рёбер изменился
                 break;
             }
         }

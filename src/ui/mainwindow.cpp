@@ -3,6 +3,9 @@
 #include "addplanetdialog.h"
 #include "addedgedialog.h"
 #include "Dijkstra.h"
+#include "piratebattle.h"
+#include <cstdlib>
+#include <ctime>
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -346,6 +349,59 @@ void MainWindow::onFindPath()
         
         //перемещаем торговца в конечную точку
         int destinationId = graph.GetVertexIndex(toPlanet.toStdString());
+        //═══ ПРОВЕРКА НАПАДЕНИЯ ПИРАТОВ ═══
+        bool defeatedByPirates = false;
+        for (int i = 0; i < result.path.GetSize() - 1; i++) {
+            int fromId = result.path.Get(i);
+            int toId = result.path.Get(i + 1);
+            
+            const DynamicArray<Edge>& edges = graph.GetEdges(fromId);
+            for (int j = 0; j < edges.GetSize(); j++) {
+                if (edges.Get(j).to == toId) {
+                    double riskFactor = edges.Get(j).data.riskFactor;
+                    double random = (rand() % 100) / 100.0;
+                    
+                    if (random < riskFactor) {
+                        QString fromName = QString::fromStdString(graph.GetVertexName(fromId));
+                        QString toName = QString::fromStdString(graph.GetVertexName(toId));
+                        
+                        logMessage(QString("🏴‍☠️ ТРЕВОГА! Пираты атакуют на пути %1 → %2!")
+                                  .arg(fromName).arg(toName));
+                        
+                        PirateBattle battle(riskFactor, this);
+                        battle.exec();
+                        
+                        if (!battle.isVictory()) {
+                            defeatedByPirates = true;
+                            QMessageBox::critical(this, "💀 GAME OVER",
+                                QString("💀 Пираты уничтожили ваш корабль!\\n\\n"
+                                       "🏴‍☠️ Место гибели: между %1 и %2\\n"
+                                       "🚀 Статистика:\\n"
+                                       "   • Завершено маршрутов: %3\\n"
+                                       "   • Пройдено расстояние: %4\\n\\n"
+                                       "Игра окончена!")
+                                .arg(fromName).arg(toName)
+                                .arg(trader.getCompletedRoutes())
+                                .arg(trader.getTotalDistance()));
+                            
+                            graph.Clear();
+                            trader.reset();
+                            updateTraderDisplay();
+                            logMessage("💀 GAME OVER - Корабль уничтожен пиратами!");
+                            return;
+                        } else {
+                            logMessage(QString("⚔️ Пираты повержены! Путь %1 → %2 свободен!")
+                                      .arg(fromName).arg(toName));
+                        }
+                    }
+                    break;
+                }
+            }
+            
+            if (defeatedByPirates) break;
+        }
+        
+        if (!defeatedByPirates) {
         trader.setCurrentPlanet(destinationId);
         trader.completeRoute(static_cast<int>(result.totalCost));
         
@@ -357,6 +413,7 @@ void MainWindow::onFindPath()
         updateTraderDisplay();
     }
 }
+        }
 
 void MainWindow::onClearGraph()
 {
