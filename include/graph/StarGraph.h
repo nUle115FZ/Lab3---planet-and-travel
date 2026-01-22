@@ -84,6 +84,9 @@ public:
     void RemoveEdge(int from, int to);
     void RemoveEdge(const std::string& fromName, const std::string& toName);
     
+    //обновление расстояния ребра (при перемещении планет)
+    void UpdateEdgeDistance(int from, int to, double newDistance);
+    
     //получение списка смежных вершин
     const DynamicArray<Edge>& GetEdges(int vertex) const;
     

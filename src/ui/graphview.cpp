@@ -366,6 +366,12 @@ void GraphView::mouseMoveEvent(QMouseEvent *event)
 void GraphView::mouseReleaseEvent(QMouseEvent *event)
 {
     Q_UNUSED(event);
+    
+    //если перетаскивали планету - пересчитываем расстояния
+    if (isDragging && selectedNode != -1) {
+        updateEdgeDistances(selectedNode);
+    }
+    
     isDragging = false;
     selectedNode = -1;
 }
@@ -593,3 +599,60 @@ QColor GraphView::getNodeColorByConnections(int nodeId)
 // КОНЕЦ ВИЗУАЛЬНЫХ ЭФФЕКТОВ
 //═══════════════════════════════════════════════════════════════
 
+
+//═══════════════════════════════════════════════════════════════
+// АВТОМАТИЧЕСКИЙ ПЕРЕСЧЁТ РАССТОЯНИЙ ПРИ ПЕРЕМЕЩЕНИИ ПЛАНЕТ
+//═══════════════════════════════════════════════════════════════
+
+void GraphView::updateEdgeDistances(int vertexId)
+{
+    //проверяем что вершина существует
+    if (!graph->HasVertex(vertexId)) {
+        return;
+    }
+    
+    //получаем позицию перемещённой планеты
+    if (!nodePositions.contains(vertexId)) {
+        return;
+    }
+    QPointF movedPos = nodePositions[vertexId].position;
+    
+    //получаем все вершины графа
+    DynamicArray<int> allVertices = graph->GetAllVertices();
+    
+    //масштабный коэффициент (пиксели -> условные единицы расстояния)
+    const double SCALE_FACTOR = 2.0;
+    
+    for (int i = 0; i < allVertices.GetSize(); i++) {
+        int otherId = allVertices.Get(i);
+        
+        //пропускаем саму перемещённую планету
+        if (otherId == vertexId) {
+            continue;
+        }
+        
+        //проверяем есть ли позиция для другой планеты
+        if (!nodePositions.contains(otherId)) {
+            continue;
+        }
+        QPointF otherPos = nodePositions[otherId].position;
+        
+        //вычисляем евклидово расстояние в пикселях
+        double pixelDistance = QLineF(movedPos, otherPos).length();
+        
+        //переводим в условные единицы
+        double logicalDistance = pixelDistance / SCALE_FACTOR;
+        
+        //минимум 1.0
+        if (logicalDistance < 1.0) {
+            logicalDistance = 1.0;
+        }
+        
+        //обновляем рёбра в обе стороны (если они существуют)
+        //из перемещённой планеты в другую
+        graph->UpdateEdgeDistance(vertexId, otherId, logicalDistance);
+        
+        //из другой планеты в перемещённую
+        graph->UpdateEdgeDistance(otherId, vertexId, logicalDistance);
+    }
+}

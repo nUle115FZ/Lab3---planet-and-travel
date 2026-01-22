@@ -144,6 +144,32 @@ void StarGraph::RemoveEdge(const std::string& fromName, const std::string& toNam
     RemoveEdge(nameToIndex.at(fromName), nameToIndex.at(toName));
 }
 
+void StarGraph::UpdateEdgeDistance(int from, int to, double newDistance) {
+    //проверяем существование вершин
+    if (adjacencyList.find(from) == adjacencyList.end()) {
+        throw std::invalid_argument("Source vertex does not exist");
+    }
+    if (adjacencyList.find(to) == adjacencyList.end()) {
+        throw std::invalid_argument("Destination vertex does not exist");
+    }
+    
+    //минимальное расстояние = 1.0
+    if (newDistance < 1.0) {
+        newDistance = 1.0;
+    }
+    
+    //ищем ребро и обновляем его расстояние
+    DynamicArray<Edge>& edges = adjacencyList[from];
+    for (int i = 0; i < edges.GetSize(); i++) {
+        if (edges[i].to == to) {
+            edges[i].data.distance = newDistance;
+            return;
+        }
+    }
+    
+    //ребро не найдено - это нормально, может его просто нет
+}
+
 const DynamicArray<Edge>& StarGraph::GetEdges(int vertex) const {
     auto it = adjacencyList.find(vertex);
     if (it == adjacencyList.end()) {

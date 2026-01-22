@@ -73,6 +73,9 @@ private:
     QPoint dragOffset;
     QStringList logMessages;
     
+    //вспомогательные методы
+    void updateEdgeDistances(int vertexId);  //пересчёт расстояний при перемещении планеты
+    
     //═══ визуальные эффекты ═══
     //анимация пути
     QTimer* animationTimer;
