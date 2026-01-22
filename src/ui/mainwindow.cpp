@@ -93,9 +93,7 @@ MainWindow::MainWindow(QWidget *parent)
     gameTimer = new QTimer(this);
     connect(gameTimer, &QTimer::timeout, this, &MainWindow::onGameTimerTick);
     
-    artifactSpawnTimer = new QTimer(this);
-    connect(artifactSpawnTimer, &QTimer::timeout, this, &MainWindow::onArtifactSpawnTimer);
-    
+
     //═══ статус бар ═══
     statusLabel = new QLabel(this);
     statusBar()->addWidget(statusLabel, 1); //растягивается
@@ -435,6 +433,14 @@ void MainWindow::onFindPath()
         
         if (!defeatedByPirates) {
         trader.setCurrentPlanet(destinationId);
+        
+        //собираем артефакты на всех планетах пути
+        for (int i = 0; i < result.path.GetSize(); i++) {
+            int planetId = result.path.Get(i);
+            if (graph.HasArtifact(planetId)) {
+                collectArtifact(planetId);
+            }
+        }
         trader.completeRoute(static_cast<int>(result.totalCost));
         
         logMessage(QString("✓ Торговец прибыл на планету: %1").arg(toPlanet));
@@ -462,7 +468,6 @@ void MainWindow::onClearGraph()
         //останавливаем игру
         if (gameStarted) {
             gameTimer->stop();
-            artifactSpawnTimer->stop();
             gameStarted = false;
             gameTimeSeconds = 0;
             collectedArtifacts = 0;
@@ -704,11 +709,10 @@ void MainWindow::startGame()
     gameTimeSeconds = 0;
     collectedArtifacts = 0;
     
-    //запускаем таймеры
+    //запускаем таймер игры
     gameTimer->start(1000); //обновление каждую секунду
-    artifactSpawnTimer->start(ARTIFACT_SPAWN_INTERVAL * 1000);
     
-    //сразу спавним первый артефакт
+    //спавним первый артефакт
     spawnArtifact();
     
     timerLabel->setStyleSheet("color: green; font-weight: bold; padding: 0 10px;");
@@ -719,8 +723,8 @@ void MainWindow::startGame()
                           .arg(REQUIRED_ARTIFACTS));
     
     logMessage("🎮 ИГРА НАЧАЛАСЬ! Соберите 10 артефактов!");
-    logMessage("⭐ Артефакты появляются на планетах каждые " + 
-              QString::number(ARTIFACT_SPAWN_INTERVAL) + " секунд");
+    logMessage("⭐ На карте одновременно может быть только одна звезда");
+    logMessage("⭐ Новая звезда появится после сбора предыдущей");
 }
 
 void MainWindow::checkGameStart()
@@ -741,24 +745,23 @@ void MainWindow::spawnArtifact()
         return;
     }
     
-    //собираем планеты без артефактов
-    DynamicArray<int> planetsWithoutArtifacts;
+    //проверяем, есть ли уже артефакт на карте
+    bool hasArtifactOnMap = false;
     for (int i = 0; i < allVertices.GetSize(); i++) {
-        int planetId = allVertices.Get(i);
-        if (!graph.HasArtifact(planetId)) {
-            planetsWithoutArtifacts.Append(planetId);
+        if (graph.HasArtifact(allVertices.Get(i))) {
+            hasArtifactOnMap = true;
+            break;
         }
     }
     
-    //если нет планет без артефактов - все заняты
-    if (planetsWithoutArtifacts.GetSize() == 0) {
-        logMessage("⚠️ Все планеты уже содержат артефакты!");
+    //если на карте уже есть артефакт - не спавним новый
+    if (hasArtifactOnMap) {
         return;
     }
     
     //выбираем случайную планету
-    int randomIndex = rand() % planetsWithoutArtifacts.GetSize();
-    int planetId = planetsWithoutArtifacts.Get(randomIndex);
+    int randomIndex = rand() % allVertices.GetSize();
+    int planetId = allVertices.Get(randomIndex);
     
     //устанавливаем артефакт
     graph.SetArtifact(planetId, true);
@@ -791,16 +794,20 @@ void MainWindow::collectArtifact(int planetId)
     
     graphView->update();
     
-    //проверяем победу
-    checkVictory();
+    //проверяем победу и спавним следующий артефакт
+    if (collectedArtifacts >= REQUIRED_ARTIFACTS) {
+        checkVictory();
+    } else {
+        //спавним следующий артефакт сразу после сбора
+        spawnArtifact();
+    }
 }
 
 void MainWindow::checkVictory()
 {
     if (collectedArtifacts >= REQUIRED_ARTIFACTS) {
-        //останавливаем таймеры
+        //останавливаем таймер игры
         gameTimer->stop();
-        artifactSpawnTimer->stop();
         
         //форматируем время
         int minutes = gameTimeSeconds / 60;
@@ -848,7 +855,3 @@ void MainWindow::onGameTimerTick()
         .arg(seconds, 2, 10, QChar('0')));
 }
 
-void MainWindow::onArtifactSpawnTimer()
-{
-    spawnArtifact();
-}
