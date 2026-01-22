@@ -115,6 +115,7 @@ private:
     void spawnBlackHole();       //создать черную дыру
     void drawBlackHole(QPainter& painter);  //отрисовка черной дыры
     void checkBlackHoleCollisions();  //проверка столкновений с планетами
+    void checkBlackHoleEdgeCollisions();  //проверка столкновений с рёбрами (путями)
 };
 
 #endif //gRAPHVIEW_H
