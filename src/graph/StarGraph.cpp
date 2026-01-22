@@ -6,10 +6,10 @@
 #include <vector>
 
 //planetData реализация
-PlanetData::PlanetData() : name(""), id(-1) {}
+PlanetData::PlanetData() : name(""), id(-1), hasArtifact(false) {}
 
-PlanetData::PlanetData(const std::string& planetName, int planetId) 
-    : name(planetName), id(planetId) {}
+PlanetData::PlanetData(const std::string& planetName, int planetId, bool artifact) 
+    : name(planetName), id(planetId), hasArtifact(artifact) {}
 
 //edgeData реализация
 EdgeData::EdgeData() : distance(0.0), riskFactor(0.0) {}
@@ -200,6 +200,29 @@ const PlanetData& StarGraph::GetPlanetData(int index) const {
         throw std::invalid_argument("Vertex index does not exist");
     }
     return it->second;
+}
+
+PlanetData& StarGraph::GetPlanetDataMutable(int index) {
+    auto it = planetData.find(index);
+    if (it == planetData.end()) {
+        throw std::invalid_argument("Vertex index does not exist");
+    }
+    return it->second;
+}
+
+void StarGraph::SetArtifact(int vertex, bool hasArtifact) {
+    if (!HasVertex(vertex)) {
+        throw std::invalid_argument("Vertex does not exist");
+    }
+    planetData[vertex].hasArtifact = hasArtifact;
+}
+
+bool StarGraph::HasArtifact(int vertex) const {
+    auto it = planetData.find(vertex);
+    if (it == planetData.end()) {
+        return false;
+    }
+    return it->second.hasArtifact;
 }
 
 bool StarGraph::HasVertex(int vertex) const {

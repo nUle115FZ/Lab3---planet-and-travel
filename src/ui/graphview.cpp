@@ -141,6 +141,44 @@ void GraphView::paintEvent(QPaintEvent *event)
         drawNode(painter, it.value(), isHighlighted);
     }
     
+    //═══ рисуем артефакты (звезды) на планетах ═══
+    for (auto it = nodePositions.begin(); it != nodePositions.end(); ++it) {
+        int planetId = it.key();
+        if (graph->HasArtifact(planetId)) {
+            NodePosition node = it.value();
+            QPointF center = node.position;
+            
+            //рисуем блестящую звезду ⭐
+            painter.save();
+            painter.translate(center.x(), center.y() - 45); //над планетой
+            
+            //свечение вокруг звезды
+            QRadialGradient glow(0, 0, 20);
+            glow.setColorAt(0, QColor(255, 215, 0, 200));
+            glow.setColorAt(0.5, QColor(255, 140, 0, 100));
+            glow.setColorAt(1, QColor(255, 69, 0, 0));
+            painter.setBrush(glow);
+            painter.setPen(Qt::NoPen);
+            painter.drawEllipse(QPointF(0, 0), 20, 20);
+            
+            //рисуем 5-конечную звезду
+            QPolygonF star;
+            for (int i = 0; i < 5; i++) {
+                double angle1 = i * 2 * M_PI / 5 - M_PI / 2;
+                double angle2 = (i + 0.5) * 2 * M_PI / 5 - M_PI / 2;
+                star << QPointF(12 * cos(angle1), 12 * sin(angle1));
+                star << QPointF(5 * cos(angle2), 5 * sin(angle2));
+            }
+            
+            //желтая звезда с обводкой
+            painter.setBrush(QColor(255, 215, 0));
+            painter.setPen(QPen(QColor(255, 140, 0), 2));
+            painter.drawPolygon(star);
+            
+            painter.restore();
+        }
+    }
+    
     //═══ рисуем торговца ═══
     if (trader && trader->getIsPlaced() && nodePositions.contains(trader->getCurrentPlanetId())) {
         NodePosition traderNode = nodePositions[trader->getCurrentPlanetId()];

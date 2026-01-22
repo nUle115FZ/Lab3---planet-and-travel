@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QLabel>
 #include <QTextEdit>
+#include <QTimer>
 #include "StarGraph.h"
 #include "Dijkstra.h"
 #include "graphview.h"
@@ -34,6 +35,10 @@ private slots:
     
     //═══ торговец ═══
     void onShowTraderInfo();    //показать информацию о торговце
+    
+    //═══ игровой таймер и артефакты ═══
+    void onGameTimerTick();     //обновление игрового таймера
+    void onArtifactSpawnTimer();//спавн артефактов
 
 private:
     Ui::MainWindow *ui;
@@ -43,10 +48,30 @@ private:
     QTextEdit *logWidget;
     Trader trader;              //торговец игрока
     
+    //═══ игровая механика ═══
+    QTimer* gameTimer;          //таймер игры
+    QTimer* artifactSpawnTimer; //таймер спавна артефактов
+    QLabel* timerLabel;         //отображение времени
+    QLabel* artifactLabel;      //отображение счетчика артефактов
+    int gameTimeSeconds;        //прошедшее время в секундах
+    int collectedArtifacts;     //собранные артефакты
+    bool gameStarted;           //началась ли игра
+    
+    static constexpr int REQUIRED_ARTIFACTS = 10; //цель игры
+    static constexpr int MIN_PLANETS_TO_START = 5; //минимум планет для старта
+    static constexpr int ARTIFACT_SPAWN_INTERVAL = 15; //интервал спавна артефактов (секунды)
+    
     void updateStatusBar();
     void logMessage(const QString& message);
     void showPathResult(const DijkstraResult& result, const QString& from, const QString& to, double timeMicrosec);
     void updateTraderDisplay(); //обновить отображение торговца
+    
+    //═══ управление игрой ═══
+    void startGame();           //начать игру
+    void checkGameStart();      //проверить условия старта
+    void spawnArtifact();       //создать артефакт на случайной планете
+    void collectArtifact(int planetId); //собрать артефакт
+    void checkVictory();        //проверить победу
 };
 
 #endif //mAINWINDOW_H

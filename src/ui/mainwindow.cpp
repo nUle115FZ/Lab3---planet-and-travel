@@ -22,6 +22,9 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , trader("Капитан Смит")
+    , gameTimeSeconds(0)
+    , collectedArtifacts(0)
+    , gameStarted(false)
 {
     ui->setupUi(this);
     
@@ -86,9 +89,27 @@ MainWindow::MainWindow(QWidget *parent)
     connect(exitAction, &QAction::triggered, this, &QWidget::close);
     connect(traderInfoAction, &QAction::triggered, this, &MainWindow::onShowTraderInfo);
     
-    //статус бар
+    //═══ инициализация игровых таймеров ═══
+    gameTimer = new QTimer(this);
+    connect(gameTimer, &QTimer::timeout, this, &MainWindow::onGameTimerTick);
+    
+    artifactSpawnTimer = new QTimer(this);
+    connect(artifactSpawnTimer, &QTimer::timeout, this, &MainWindow::onArtifactSpawnTimer);
+    
+    //═══ статус бар ═══
     statusLabel = new QLabel(this);
-    statusBar()->addWidget(statusLabel);
+    statusBar()->addWidget(statusLabel, 1); //растягивается
+    
+    //добавляем лейбл для артефактов
+    artifactLabel = new QLabel("⭐ Артефактов: 0 / 10", this);
+    artifactLabel->setStyleSheet("color: gold; font-weight: bold; padding: 0 10px;");
+    statusBar()->addPermanentWidget(artifactLabel);
+    
+    //добавляем лейбл для таймера
+    timerLabel = new QLabel("⏱️ Игра не начата", this);
+    timerLabel->setStyleSheet("color: gray; padding: 0 10px;");
+    statusBar()->addPermanentWidget(timerLabel);
+    
     updateStatusBar();
     
     //устанавливаем размер окна
@@ -132,6 +153,8 @@ void MainWindow::onAddPlanet()
             graphView->update();
             updateStatusBar();
             logMessage("✓ Планета \"" + planetName + "\" добавлена");
+            
+            checkGameStart(); //проверяем запуск игры
         } catch (const std::exception& e) {
             QMessageBox::warning(this, "Ошибка", 
                 QString("Не удалось добавить планету: %1").arg(e.what()));
@@ -202,6 +225,15 @@ void MainWindow::onRemovePlanet()
                         .arg(QString::fromStdString(trader.getName())));
                 return;
             }
+        }
+        
+        //проверяем артефакт
+        int planetId = graph.GetVertexIndex(planetName.toStdString());
+        if (graph.HasArtifact(planetId)) {
+            QMessageBox::warning(this, "Нельзя удалить",
+                "На этой планете находится нужный вам артефакт! ⭐\n"
+                "Сначала заберите его, посетив планету.");
+            return;
         }
         
         QMessageBox::StandardButton reply = QMessageBox::question(this, 
@@ -426,6 +458,20 @@ void MainWindow::onClearGraph()
     if (reply == QMessageBox::Yes) {
         graph.Clear();
         trader.reset();  //сбрасываем торговца
+        
+        //останавливаем игру
+        if (gameStarted) {
+            gameTimer->stop();
+            artifactSpawnTimer->stop();
+            gameStarted = false;
+            gameTimeSeconds = 0;
+            collectedArtifacts = 0;
+            
+            timerLabel->setText("⏱️ Игра не начата");
+            timerLabel->setStyleSheet("color: gray; padding: 0 10px;");
+            artifactLabel->setText("⭐ Артефактов: 0 / 10");
+        }
+        
         graphView->update();
         updateStatusBar();
         logMessage("🗑️ Граф очищен");
@@ -476,6 +522,8 @@ void MainWindow::onLoadFromFile()
         graphView->setTrader(&trader);
         graphView->update();
         updateStatusBar();
+        
+        checkGameStart(); //проверяем запуск игры
         
         logMessage("✓ Граф загружен из файла: " + QFileInfo(filename).fileName());
         logMessage(QString("  Содержит %1 планет").arg(graph.GetVertexCount()));
@@ -646,3 +694,161 @@ void MainWindow::updateTraderDisplay()
     }
 }
 
+void MainWindow::startGame()
+{
+    if (gameStarted) {
+        return; //игра уже начата
+    }
+    
+    gameStarted = true;
+    gameTimeSeconds = 0;
+    collectedArtifacts = 0;
+    
+    //запускаем таймеры
+    gameTimer->start(1000); //обновление каждую секунду
+    artifactSpawnTimer->start(ARTIFACT_SPAWN_INTERVAL * 1000);
+    
+    //сразу спавним первый артефакт
+    spawnArtifact();
+    
+    timerLabel->setStyleSheet("color: green; font-weight: bold; padding: 0 10px;");
+    timerLabel->setText("⏱️ 00:00");
+    
+    artifactLabel->setText(QString("⭐ Артефактов: %1 / %2")
+                          .arg(collectedArtifacts)
+                          .arg(REQUIRED_ARTIFACTS));
+    
+    logMessage("🎮 ИГРА НАЧАЛАСЬ! Соберите 10 артефактов!");
+    logMessage("⭐ Артефакты появляются на планетах каждые " + 
+              QString::number(ARTIFACT_SPAWN_INTERVAL) + " секунд");
+}
+
+void MainWindow::checkGameStart()
+{
+    if (!gameStarted && graph.GetVertexCount() >= MIN_PLANETS_TO_START) {
+        startGame();
+    }
+}
+
+void MainWindow::spawnArtifact()
+{
+    if (!gameStarted) {
+        return;
+    }
+    
+    DynamicArray<int> allVertices = graph.GetAllVertices();
+    if (allVertices.GetSize() == 0) {
+        return;
+    }
+    
+    //собираем планеты без артефактов
+    DynamicArray<int> planetsWithoutArtifacts;
+    for (int i = 0; i < allVertices.GetSize(); i++) {
+        int planetId = allVertices.Get(i);
+        if (!graph.HasArtifact(planetId)) {
+            planetsWithoutArtifacts.Append(planetId);
+        }
+    }
+    
+    //если нет планет без артефактов - все заняты
+    if (planetsWithoutArtifacts.GetSize() == 0) {
+        logMessage("⚠️ Все планеты уже содержат артефакты!");
+        return;
+    }
+    
+    //выбираем случайную планету
+    int randomIndex = rand() % planetsWithoutArtifacts.GetSize();
+    int planetId = planetsWithoutArtifacts.Get(randomIndex);
+    
+    //устанавливаем артефакт
+    graph.SetArtifact(planetId, true);
+    
+    QString planetName = QString::fromStdString(graph.GetVertexName(planetId));
+    logMessage("⭐ Новый артефакт появился на планете \"" + planetName + "\"!");
+    
+    //обновляем визуализацию
+    graphView->update();
+}
+
+void MainWindow::collectArtifact(int planetId)
+{
+    if (!graph.HasArtifact(planetId)) {
+        return; //нет артефакта на этой планете
+    }
+    
+    //убираем артефакт
+    graph.SetArtifact(planetId, false);
+    collectedArtifacts++;
+    
+    QString planetName = QString::fromStdString(graph.GetVertexName(planetId));
+    logMessage("✨ Артефакт собран на планете \"" + planetName + "\"! " +
+              QString("(%1 / %2)").arg(collectedArtifacts).arg(REQUIRED_ARTIFACTS));
+    
+    //обновляем UI
+    artifactLabel->setText(QString("⭐ Артефактов: %1 / %2")
+                          .arg(collectedArtifacts)
+                          .arg(REQUIRED_ARTIFACTS));
+    
+    graphView->update();
+    
+    //проверяем победу
+    checkVictory();
+}
+
+void MainWindow::checkVictory()
+{
+    if (collectedArtifacts >= REQUIRED_ARTIFACTS) {
+        //останавливаем таймеры
+        gameTimer->stop();
+        artifactSpawnTimer->stop();
+        
+        //форматируем время
+        int minutes = gameTimeSeconds / 60;
+        int seconds = gameTimeSeconds % 60;
+        QString timeStr = QString("%1:%2")
+            .arg(minutes, 2, 10, QChar('0'))
+            .arg(seconds, 2, 10, QChar('0'));
+        
+        QString victoryMessage = QString(
+            "🎉 ПОБЕДА! 🎉\n\n"
+            "Вы собрали все 10 артефактов!\n\n"
+            "⏱️ Время: %1\n"
+            "🚀 Пройдено маршрутов: %2\n"
+            "📏 Общая дистанция: %3 св. лет\n\n"
+            "Поздравляем, Капитан!")
+            .arg(timeStr)
+            .arg(trader.getCompletedRoutes())
+            .arg(trader.getTotalDistance());
+        
+        QMessageBox::information(this, "🏆 ПОБЕДА!", victoryMessage);
+        
+        logMessage("🏆 ПОБЕДА! Игра завершена за " + timeStr);
+        
+        //можно предложить начать заново
+        int reply = QMessageBox::question(this, "Новая игра?",
+            "Хотите начать новую игру?",
+            QMessageBox::Yes | QMessageBox::No);
+        
+        if (reply == QMessageBox::Yes) {
+            onClearGraph();
+        }
+    }
+}
+
+void MainWindow::onGameTimerTick()
+{
+    gameTimeSeconds++;
+    
+    //форматируем время
+    int minutes = gameTimeSeconds / 60;
+    int seconds = gameTimeSeconds % 60;
+    
+    timerLabel->setText(QString("⏱️ %1:%2")
+        .arg(minutes, 2, 10, QChar('0'))
+        .arg(seconds, 2, 10, QChar('0')));
+}
+
+void MainWindow::onArtifactSpawnTimer()
+{
+    spawnArtifact();
+}

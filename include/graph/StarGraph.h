@@ -11,9 +11,10 @@
 struct PlanetData {
     std::string name;     //название планеты
     int id;               //уникальный идентификатор
+    bool hasArtifact;     //есть ли на планете артефакт (звезда)
     
     PlanetData();
-    PlanetData(const std::string& planetName, int planetId);
+    PlanetData(const std::string& planetName, int planetId, bool artifact = false);
 };
 
 /**
@@ -98,6 +99,11 @@ public:
     
     //получение данных планеты по индексу
     const PlanetData& GetPlanetData(int index) const;
+    PlanetData& GetPlanetDataMutable(int index); //для изменения данных
+    
+    //работа с артефактами
+    void SetArtifact(int vertex, bool hasArtifact);
+    bool HasArtifact(int vertex) const;
     
     //проверка существования вершины
     bool HasVertex(int vertex) const;
