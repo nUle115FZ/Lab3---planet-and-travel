@@ -5,12 +5,60 @@
 #include <QApplication>
 
 PirateBattle::PirateBattle(double risk, QWidget *parent)
-    : QDialog(parent), clicksCount(0), timeLeft(BATTLE_TIME), 
-      riskFactor(risk), victory(false)
+    : QDialog(parent), clicksCount(0), riskFactor(risk), victory(false)
 {
-    setWindowTitle("⚔️ НАПАДЕНИЕ ПИРАТОВ!");
+    //определяем тип пирата и устанавливаем параметры
+    pirateType = determinePirateType(risk);
+    
+    switch (pirateType) {
+        case PirateType::ROOKIE:
+            requiredClicks = 5;
+            battleTime = 50;  //5 секунд
+            break;
+        case PirateType::VETERAN:
+            requiredClicks = 10;
+            battleTime = 50;  //5 секунд
+            break;
+        case PirateType::BOSS:
+            requiredClicks = 15;
+            battleTime = 40;  //4 секунды
+            break;
+    }
+    
+    timeLeft = battleTime;
+    
     setModal(true);
     setMinimumSize(400, 300);
+    
+    //устанавливаем заголовок и цвет в зависимости от типа
+    QString title;
+    QString bgColor;
+    QString pirateName;
+    QString pirateEmoji;
+    
+    switch (pirateType) {
+        case PirateType::ROOKIE:
+            title = "⚔️ НАПАДЕНИЕ НОВИЧКОВ!";
+            bgColor = "#f0f0f0";
+            pirateName = "Пираты-новички";
+            pirateEmoji = "🏴‍☠️";
+            break;
+        case PirateType::VETERAN:
+            title = "⚔️ НАПАДЕНИЕ ВЕТЕРАНОВ!";
+            bgColor = "#ffe0cc";
+            pirateName = "Пираты-ветераны";
+            pirateEmoji = "☠️";
+            break;
+        case PirateType::BOSS:
+            title = "⚔️ НАПАДЕНИЕ БОССА!";
+            bgColor = "#ffcccc";
+            pirateName = "БОСС ПИРАТОВ";
+            pirateEmoji = "💀";
+            break;
+    }
+    
+    setWindowTitle(title);
+    setStyleSheet(QString("QDialog { background-color: %1; }").arg(bgColor));
     
     //создаём layout
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
@@ -18,13 +66,16 @@ PirateBattle::PirateBattle(double risk, QWidget *parent)
     
     //═══ информация ═══
     infoLabel = new QLabel(this);
-    infoLabel->setText(QString("🏴‍☠️ Космические пираты атакуют!\n"
-                               "Уровень опасности: %1%\n\n"
+    infoLabel->setText(QString("%1 %2 атакуют!\n"
+                               "Уровень опасности: %3%\n\n"
                                "Быстрее стреляй из бластера!")
+                      .arg(pirateEmoji)
+                      .arg(pirateName)
                       .arg(QString::number(riskFactor * 100, 'f', 0)));
     infoLabel->setAlignment(Qt::AlignCenter);
     QFont infoFont = infoLabel->font();
     infoFont.setPointSize(12);
+    infoFont.setBold(pirateType == PirateType::BOSS);
     infoLabel->setFont(infoFont);
     mainLayout->addWidget(infoLabel);
     
@@ -85,7 +136,7 @@ void PirateBattle::onAttackClick()
     updateDisplay();
     
     //проверяем победу
-    if (clicksCount >= REQUIRED_CLICKS) {
+    if (clicksCount >= requiredClicks) {
         victory = true;
         battleTimer->stop();
         
@@ -116,7 +167,7 @@ void PirateBattle::onTimerTick()
     updateDisplay();
     
     //проверяем поражение
-    if (timeLeft <= 0 && clicksCount < REQUIRED_CLICKS) {
+    if (timeLeft <= 0 && clicksCount < requiredClicks) {
         victory = false;
         battleTimer->stop();
         
@@ -164,5 +215,16 @@ void PirateBattle::updateDisplay()
     //обновляем счётчик кликов
     clicksLabel->setText(QString("🎯 Попаданий: %1 / %2")
                         .arg(clicksCount)
-                        .arg(REQUIRED_CLICKS));
+                        .arg(requiredClicks));
+}
+
+PirateType PirateBattle::determinePirateType(double risk)
+{
+    if (risk < 0.25) {
+        return PirateType::ROOKIE;
+    } else if (risk <= 0.4) {
+        return PirateType::VETERAN;
+    } else {
+        return PirateType::BOSS;
+    }
 }
