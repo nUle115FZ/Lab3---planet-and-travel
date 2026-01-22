@@ -47,7 +47,7 @@ GraphView::GraphView(StarGraph* g, QWidget *parent)
     //таймер обновления позиции (50 мс)
     blackHoleUpdateTimer = new QTimer(this);
     connect(blackHoleUpdateTimer, &QTimer::timeout, this, &GraphView::onBlackHoleUpdate);
-    blackHoleUpdateTimer->start(50);
+    blackHoleUpdateTimer->start(16);  //16 мс = ~60 FPS
 }
 
 void GraphView::paintEvent(QPaintEvent *event)
@@ -708,11 +708,11 @@ void GraphView::spawnBlackHole()
     if (rand() % 2 == 0) {
         //слева направо
         startPos = QPointF(-100, rand() % height());
-        velocity = QPointF(1.5 + (rand() % 100) / 100.0, (rand() % 200 - 100) / 100.0);
+        velocity = QPointF(3.75 + (rand() % 250) / 100.0, (rand() % 200 - 100) / 100.0);
     } else {
         //справа налево
         startPos = QPointF(width() + 100, rand() % height());
-        velocity = QPointF(-1.5 - (rand() % 100) / 100.0, (rand() % 200 - 100) / 100.0);
+        velocity = QPointF(-3.75 - (rand() % 250) / 100.0, (rand() % 200 - 100) / 100.0);
     }
     
     //создаем черную дыру
@@ -728,19 +728,30 @@ void GraphView::onBlackHoleUpdate()
         return;
     }
     
-    //обновляем позицию черной дыры (deltaTime = 0.05 сек)
-    blackHole->update(0.05);
+    //обновляем позицию черной дыры (deltaTime = 0.016 сек для 60 FPS)
+    blackHole->update(0.016);
     
     //проверяем коллизии с планетами
     checkBlackHoleCollisions();
     
-    //если черная дыра вышла за экран или время жизни вышло - удаляем
-    if (!blackHole->getIsActive() || 
-        blackHole->getPosition().x() < -200 || 
-        blackHole->getPosition().x() > width() + 200 ||
-        blackHole->getPosition().y() < -200 || 
-        blackHole->getPosition().y() > height() + 200) {
-        
+    //проверяем что черная дыра пересекла весь экран и вышла с другой стороны
+    QPointF pos = blackHole->getPosition();
+    QPointF vel = blackHole->getVelocity();
+    
+    bool exitedScreen = false;
+    
+    //если летела слева направо (velocity.x > 0) - проверяем правый край
+    if (vel.x() > 0 && pos.x() > width() + 200) {
+        exitedScreen = true;
+    }
+    
+    //если летела справа налево (velocity.x < 0) - проверяем левый край
+    if (vel.x() < 0 && pos.x() < -200) {
+        exitedScreen = true;
+    }
+    
+    //удаляем только если улетела за экран ИЛИ время жизни вышло
+    if (exitedScreen || !blackHole->getIsActive()) {
         delete blackHole;
         blackHole = nullptr;
         addLogMessage("✓ Черная дыра покинула сектор");

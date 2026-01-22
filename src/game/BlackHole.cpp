@@ -3,13 +3,13 @@
 
 BlackHole::BlackHole()
     : position(0, 0), velocity(0, 0), radius(50.0), 
-      isActive(false), lifetime(30.0), age(0.0)
+      isActive(false), lifetime(60.0), age(0.0)
 {
 }
 
 BlackHole::BlackHole(QPointF pos, QPointF vel, double rad)
     : position(pos), velocity(vel), radius(rad), 
-      isActive(true), lifetime(30.0), age(0.0)
+      isActive(true), lifetime(60.0), age(0.0)
 {
 }
 
