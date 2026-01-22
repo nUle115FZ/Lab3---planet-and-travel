@@ -708,11 +708,11 @@ void GraphView::spawnBlackHole()
     if (rand() % 2 == 0) {
         //слева направо
         startPos = QPointF(-100, rand() % height());
-        velocity = QPointF(3.75 + (rand() % 250) / 100.0, (rand() % 200 - 100) / 100.0);
+        velocity = QPointF(7.5 + (rand() % 500) / 100.0, (rand() % 200 - 100) / 100.0);
     } else {
         //справа налево
         startPos = QPointF(width() + 100, rand() % height());
-        velocity = QPointF(-3.75 - (rand() % 250) / 100.0, (rand() % 200 - 100) / 100.0);
+        velocity = QPointF(-7.5 - (rand() % 500) / 100.0, (rand() % 200 - 100) / 100.0);
     }
     
     //создаем черную дыру
