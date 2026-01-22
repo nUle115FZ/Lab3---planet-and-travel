@@ -791,17 +791,10 @@ void GraphView::checkBlackHoleCollisions()
             
             //проверяем был ли на планете торговец
             if (trader && trader->getIsPlaced() && trader->getCurrentPlanetId() == planetId) {
-                //GAME OVER!
-                QMessageBox::critical(this, "💀 GAME OVER", 
-                    QString("Черная дыра поглотила планету \"%1\" вместе с торговцем %2!\n\n"
-                            "🚀 Статистика:\n"
-                            "   • Завершено маршрутов: %3\n"
-                            "   • Пройдено расстояние: %4\n\n"
-                            "Игра окончена!")
-                    .arg(planetName)
-                    .arg(QString::fromStdString(trader->getName()))
-                    .arg(trader->getCompletedRoutes())
-                    .arg(trader->getTotalDistance()));
+                //сохраняем статистику до сброса
+                int completedRoutes = trader->getCompletedRoutes();
+                int totalDistance = trader->getTotalDistance();
+                QString traderName = QString::fromStdString(trader->getName());
                 
                 //сбрасываем игру
                 graph->Clear();
@@ -812,6 +805,21 @@ void GraphView::checkBlackHoleCollisions()
                 blackHole = nullptr;
                 
                 addLogMessage("💀 GAME OVER - Торговец погиб!");
+                
+                //показываем сообщение ПОСЛЕ очистки
+                QMessageBox::information(this, "💀 GAME OVER", 
+                    QString("Черная дыра поглотила планету \"%1\" вместе с торговцем %2!\n\n"
+                            "🚀 Финальная статистика:\n"
+                            "   • Завершено маршрутов: %3\n"
+                            "   • Пройдено расстояние: %4\n\n"
+                            "Карта очищена. Начните новую игру!")
+                    .arg(planetName)
+                    .arg(traderName)
+                    .arg(completedRoutes)
+                    .arg(totalDistance));
+                
+                //выходим, игра уже сброшена
+                return;
             } else {
                 //просто уничтожаем планету
                 addLogMessage(QString("💥 Черная дыра поглотила планету \"%1\"!").arg(planetName));
