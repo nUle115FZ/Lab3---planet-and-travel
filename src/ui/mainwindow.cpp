@@ -759,9 +759,26 @@ void MainWindow::spawnArtifact()
         return;
     }
     
-    //выбираем случайную планету
-    int randomIndex = rand() % allVertices.GetSize();
-    int planetId = allVertices.Get(randomIndex);
+    //собираем планеты, на которых может появиться артефакт
+    //(исключаем планету с торговцем)
+    DynamicArray<int> availablePlanets;
+    for (int i = 0; i < allVertices.GetSize(); i++) {
+        int planetId = allVertices.Get(i);
+        //исключаем планету, на которой находится торговец
+        if (trader.getIsPlaced() && planetId == trader.getCurrentPlanetId()) {
+            continue;
+        }
+        availablePlanets.Append(planetId);
+    }
+    
+    //если нет доступных планет (торговец на единственной планете)
+    if (availablePlanets.GetSize() == 0) {
+        return;
+    }
+    
+    //выбираем случайную планету из доступных
+    int randomIndex = rand() % availablePlanets.GetSize();
+    int planetId = availablePlanets.Get(randomIndex);
     
     //устанавливаем артефакт
     graph.SetArtifact(planetId, true);
