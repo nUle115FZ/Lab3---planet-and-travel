@@ -9,6 +9,7 @@
 #include "StarGraph.h"
 #include "DynamicArray.h"
 #include "Trader.h"
+#include "BlackHole.h"
 #include "visual_effects.h"
 
 struct NodePosition {
@@ -62,6 +63,8 @@ protected:
 private slots:
     void onAnimationStep();      //шаг анимации пути
     void onMeteorUpdate();       //обновление метеоритов
+    void onBlackHoleSpawn();     //спавн черной дыры
+    void onBlackHoleUpdate();    //обновление черной дыры
 
 private:
     StarGraph* graph;
@@ -89,6 +92,11 @@ private:
     //статичные звезды (чтобы не мелькали)
     QVector<Star> stars;
     
+    //═══ черная дыра ═══
+    QTimer* blackHoleSpawnTimer;     //таймер спавна черной дыры (60 сек)
+    QTimer* blackHoleUpdateTimer;    //таймер обновления позиции (50 мс)
+    BlackHole* blackHole;            //текущая черная дыра (nullptr если нет)
+    
     void updateNodePositions();
     void drawNode(QPainter& painter, const NodePosition& node, bool isHighlighted);
     void drawEdge(QPainter& painter, const QPointF& from, const QPointF& to, 
@@ -102,6 +110,11 @@ private:
     void drawMeteors(QPainter& painter);  //отрисовка метеоритов
     void drawStars(QPainter& painter);    //отрисовка звезд
     QColor getNodeColorByConnections(int nodeId);  //цвет планеты по связям
+    
+    //═══ методы для черной дыры ═══
+    void spawnBlackHole();       //создать черную дыру
+    void drawBlackHole(QPainter& painter);  //отрисовка черной дыры
+    void checkBlackHoleCollisions();  //проверка столкновений с планетами
 };
 
 #endif //gRAPHVIEW_H

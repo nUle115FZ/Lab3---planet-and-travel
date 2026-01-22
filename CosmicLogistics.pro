@@ -26,7 +26,8 @@ SOURCES += \
     src/ui/addedgedialog.cpp \
     src/graph/StarGraph.cpp \
     src/graph/Dijkstra.cpp \
-    src/game/Trader.cpp
+    src/game/Trader.cpp \
+    src/game/BlackHole.cpp
 
 # Заголовочные файлы
 HEADERS += \
@@ -40,6 +41,7 @@ HEADERS += \
     include/graph/StarGraph.h \
     include/graph/Dijkstra.h \
     include/game/Trader.h \
+    include/game/BlackHole.h \
     include/ui/visual_effects.h
 
 # UI формы

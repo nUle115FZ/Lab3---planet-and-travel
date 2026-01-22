@@ -6,13 +6,14 @@
 #include <QtMath>
 #include <QFont>
 #include <QTimer>
+#include <QMessageBox>
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
 
 GraphView::GraphView(StarGraph* g, QWidget *parent)
     : QWidget(parent), graph(g), trader(nullptr), selectedNode(-1), isDragging(false),
-      animationStep(0), isAnimating(false)
+      animationStep(0), isAnimating(false), blackHole(nullptr)
 {
     setMinimumSize(800, 600);
     setMouseTracking(true);
@@ -36,6 +37,17 @@ GraphView::GraphView(StarGraph* g, QWidget *parent)
             meteorTimer->start(METEOR_UPDATE_INTERVAL_MS);
         }
     }
+    
+    //═══ инициализация черной дыры ═══
+    //таймер спавна (60 секунд)
+    blackHoleSpawnTimer = new QTimer(this);
+    connect(blackHoleSpawnTimer, &QTimer::timeout, this, &GraphView::onBlackHoleSpawn);
+    blackHoleSpawnTimer->start(60000);  //60000 мс = 60 сек
+    
+    //таймер обновления позиции (50 мс)
+    blackHoleUpdateTimer = new QTimer(this);
+    connect(blackHoleUpdateTimer, &QTimer::timeout, this, &GraphView::onBlackHoleUpdate);
+    blackHoleUpdateTimer->start(50);
 }
 
 void GraphView::paintEvent(QPaintEvent *event)
@@ -164,6 +176,10 @@ void GraphView::paintEvent(QPaintEvent *event)
                         Qt::AlignCenter,
                         QString::fromStdString(trader->getName()));
     }
+    
+    //═══ рисуем черную дыру ═══
+    drawBlackHole(painter);
+    
     
     //лог сообщений
     if (!logMessages.isEmpty()) {
@@ -655,4 +671,190 @@ void GraphView::updateEdgeDistances(int vertexId)
         //из другой планеты в перемещённую
         graph->UpdateEdgeDistance(otherId, vertexId, logicalDistance);
     }
+}
+
+//═══════════════════════════════════════════════════════════════
+// ЧЕРНАЯ ДЫРА - ОПАСНОСТЬ ДЛЯ ПЛАНЕТ
+//═══════════════════════════════════════════════════════════════
+
+void GraphView::onBlackHoleSpawn()
+{
+    //если уже есть активная черная дыра - не спавним новую
+    if (blackHole && blackHole->getIsActive()) {
+        return;
+    }
+    
+    //удаляем старую черную дыру если она была
+    if (blackHole) {
+        delete blackHole;
+        blackHole = nullptr;
+    }
+    
+    spawnBlackHole();
+}
+
+void GraphView::spawnBlackHole()
+{
+    //проверяем что есть планеты в графе
+    if (graph->GetVertexCount() == 0) {
+        return;
+    }
+    
+    //случайная позиция за пределами экрана (слева или справа)
+    QPointF startPos;
+    QPointF velocity;
+    
+    //50% шанс слева, 50% справа
+    if (rand() % 2 == 0) {
+        //слева направо
+        startPos = QPointF(-100, rand() % height());
+        velocity = QPointF(1.5 + (rand() % 100) / 100.0, (rand() % 200 - 100) / 100.0);
+    } else {
+        //справа налево
+        startPos = QPointF(width() + 100, rand() % height());
+        velocity = QPointF(-1.5 - (rand() % 100) / 100.0, (rand() % 200 - 100) / 100.0);
+    }
+    
+    //создаем черную дыру
+    blackHole = new BlackHole(startPos, velocity, 50.0);
+    
+    //логируем событие
+    addLogMessage("⚠️ ВНИМАНИЕ! Черная дыра появилась в секторе!");
+}
+
+void GraphView::onBlackHoleUpdate()
+{
+    if (!blackHole || !blackHole->getIsActive()) {
+        return;
+    }
+    
+    //обновляем позицию черной дыры (deltaTime = 0.05 сек)
+    blackHole->update(0.05);
+    
+    //проверяем коллизии с планетами
+    checkBlackHoleCollisions();
+    
+    //если черная дыра вышла за экран или время жизни вышло - удаляем
+    if (!blackHole->getIsActive() || 
+        blackHole->getPosition().x() < -200 || 
+        blackHole->getPosition().x() > width() + 200 ||
+        blackHole->getPosition().y() < -200 || 
+        blackHole->getPosition().y() > height() + 200) {
+        
+        delete blackHole;
+        blackHole = nullptr;
+        addLogMessage("✓ Черная дыра покинула сектор");
+    }
+    
+    update();
+}
+
+void GraphView::checkBlackHoleCollisions()
+{
+    if (!blackHole || !blackHole->getIsActive()) {
+        return;
+    }
+    
+    //получаем все планеты
+    DynamicArray<int> vertices = graph->GetAllVertices();
+    
+    for (int i = 0; i < vertices.GetSize(); i++) {
+        int planetId = vertices.Get(i);
+        
+        //проверяем есть ли позиция планеты
+        if (!nodePositions.contains(planetId)) {
+            continue;
+        }
+        
+        QPointF planetPos = nodePositions[planetId].position;
+        
+        //проверяем столкновение с черной дырой
+        if (blackHole->collidesWithPoint(planetPos, 30.0)) {  //30 = радиус планеты
+            //получаем имя планеты
+            QString planetName = QString::fromStdString(graph->GetVertexName(planetId));
+            
+            //проверяем был ли на планете торговец
+            if (trader && trader->getIsPlaced() && trader->getCurrentPlanetId() == planetId) {
+                //GAME OVER!
+                QMessageBox::critical(this, "💀 GAME OVER", 
+                    QString("Черная дыра поглотила планету \"%1\" вместе с торговцем %2!\n\n"
+                            "🚀 Статистика:\n"
+                            "   • Завершено маршрутов: %3\n"
+                            "   • Пройдено расстояние: %4\n\n"
+                            "Игра окончена!")
+                    .arg(planetName)
+                    .arg(QString::fromStdString(trader->getName()))
+                    .arg(trader->getCompletedRoutes())
+                    .arg(trader->getTotalDistance()));
+                
+                //сбрасываем игру
+                graph->Clear();
+                trader->reset();
+                
+                //удаляем черную дыру
+                delete blackHole;
+                blackHole = nullptr;
+                
+                addLogMessage("💀 GAME OVER - Торговец погиб!");
+            } else {
+                //просто уничтожаем планету
+                addLogMessage(QString("💥 Черная дыра поглотила планету \"%1\"!").arg(planetName));
+                graph->RemoveVertex(planetId);
+            }
+            
+            //выходим из цикла, так как граф изменился
+            break;
+        }
+    }
+}
+
+void GraphView::drawBlackHole(QPainter& painter)
+{
+    if (!blackHole || !blackHole->getIsActive()) {
+        return;
+    }
+    
+    QPointF center = blackHole->getPosition();
+    double radius = blackHole->getRadius();
+    
+    //эффект аккреционного диска (вращающиеся частицы)
+    double age = blackHole->getAge();
+    for (int i = 0; i < 12; i++) {
+        double angle = (age * 50.0 + i * 30.0) * M_PI / 180.0;
+        double dist = radius * 1.5;
+        QPointF particlePos = center + QPointF(cos(angle) * dist, sin(angle) * dist);
+        
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(QColor(255, 150, 0, 180));
+        painter.drawEllipse(particlePos, 3, 3);
+    }
+    
+    //свечение вокруг черной дыры
+    QRadialGradient glowGradient(center, radius * 2.0);
+    glowGradient.setColorAt(0.0, QColor(255, 100, 0, 200));
+    glowGradient.setColorAt(0.5, QColor(200, 50, 0, 100));
+    glowGradient.setColorAt(1.0, QColor(100, 0, 0, 0));
+    painter.setBrush(glowGradient);
+    painter.setPen(Qt::NoPen);
+    painter.drawEllipse(center, radius * 2.0, radius * 2.0);
+    
+    //горизонт событий (черный круг)
+    painter.setBrush(QColor(10, 10, 10));
+    painter.setPen(QPen(QColor(255, 50, 0), 2));
+    painter.drawEllipse(center, radius, radius);
+    
+    //центральная сингулярность
+    painter.setBrush(QColor(0, 0, 0));
+    painter.setPen(Qt::NoPen);
+    painter.drawEllipse(center, radius * 0.3, radius * 0.3);
+    
+    //предупреждающий текст
+    painter.setPen(QColor(255, 100, 0));
+    QFont font = painter.font();
+    font.setPointSize(10);
+    font.setBold(true);
+    painter.setFont(font);
+    painter.drawText(QRectF(center.x() - 100, center.y() + radius + 10, 200, 30),
+                    Qt::AlignCenter,
+                    "⚠️ ОПАСНО ⚠️");
 }
